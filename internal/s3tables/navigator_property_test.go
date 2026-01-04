@@ -229,7 +229,6 @@ func TestPropertyNavigationLevelDeterminesCorrectResourceListing(t *testing.T) {
 	properties.TestingRun(t)
 }
 
-
 // TestPropertySelectionAdvancesNavigationToNextLevel tests Property 2
 // Feature: s3t-list, Property 2: Selection advances navigation to next level
 // **Validates: Requirements 1.3, 2.3**
@@ -416,7 +415,6 @@ func TestPropertySelectionAdvancesNavigationToNextLevel(t *testing.T) {
 
 	properties.TestingRun(t)
 }
-
 
 // TestPropertyESCNavigatesBackOneLevel tests Property 5
 // Feature: s3t-list, Property 5: ESC navigates back one level
@@ -664,7 +662,6 @@ func TestPropertyESCNavigatesBackOneLevel(t *testing.T) {
 
 	properties.TestingRun(t)
 }
-
 
 // TestPropertyBackNavigationUsesCachedData tests Property 6
 // Feature: s3t-list, Property 6: Back navigation uses cached data

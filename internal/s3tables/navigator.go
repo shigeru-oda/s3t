@@ -62,7 +62,6 @@ type NavigationState struct {
 	SelectedNamespace string            // 選択された Namespace 名
 }
 
-
 // NavigationController manages hierarchical navigation
 type NavigationController struct {
 	lister   *S3TablesLister

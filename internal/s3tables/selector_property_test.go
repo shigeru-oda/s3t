@@ -120,7 +120,6 @@ func TestPropertyFilterCorrectlyFiltersItemsByPattern(t *testing.T) {
 	properties.TestingRun(t)
 }
 
-
 // TestPropertySubstringMatchingIsAutomatic tests Property 4
 // Feature: s3t-list, Property 4: Substring matching is automatic
 // Validates: Requirements 4.2
