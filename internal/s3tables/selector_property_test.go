@@ -15,7 +15,7 @@ import (
 func TestNewPromptSelector(t *testing.T) {
 	selector := NewPromptSelector()
 	if selector == nil {
-		t.Error("NewPromptSelector() returned nil")
+		t.Fatal("NewPromptSelector() returned nil")
 	}
 	if selector.runFunc == nil {
 		t.Error("NewPromptSelector() runFunc is nil")
@@ -26,7 +26,7 @@ func TestNewPromptSelector(t *testing.T) {
 func TestNewFilterablePromptSelector(t *testing.T) {
 	selector := NewFilterablePromptSelector()
 	if selector == nil {
-		t.Error("NewFilterablePromptSelector() returned nil")
+		t.Fatal("NewFilterablePromptSelector() returned nil")
 	}
 	if selector.runFunc == nil {
 		t.Error("NewFilterablePromptSelector() runFunc is nil")
