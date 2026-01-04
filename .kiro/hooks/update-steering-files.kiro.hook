@@ -1,13 +1,15 @@
 {
   "enabled": true,
   "name": "Update Steering Files",
-  "description": "プロジェクトの現在の構成を分析して、.kiro/steering/ 内のstructure.md、tech.md、product.mdを更新します。変更点をハイライトして更新理由を説明します。また外部向けにreadme.mdも更新して欲しい",
+  "description": "プロジェクトの現在の構成を分析して、.kiro/steering/ 内のstructure.md、tech.md、product.mdを更新します。\nまたreadme.mdもTool目的、導入方法、利用方法、必要なAWS権限を更新してします。\n変更点をハイライトして更新理由を説明します。",
   "version": "1",
   "when": {
     "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",
-    "prompt": "プロジェクトの現在の構成を分析して、.kiro/steering/ 内のステアリングファイルを更新してください。\n\n以下の手順で実行してください：\n\n1. プロジェクト全体のファイル構造を確認する\n2. go.mod と go.sum から依存関係を確認する\n3. 主要なソースファイルの内容を確認する\n\nその後、以下のファイルを更新してください：\n\n1. **structure.md** - 最新のディレクトリ構造と命名規則を反映\n2. **tech.md** - 使用中の技術スタック、ライブラリ、ツールを更新\n3. **product.md** - 新しい機能や変更があれば更新\n\n各ファイルの更新時には：\n- 変更前と変更後の差分をハイライトする\n- なぜその変更が必要だったかを説明する\n- 変更がない場合は「変更なし」と報告する"
-  }
+    "prompt": "プロジェクトの現在の構成を分析して、.kiro/steering/ 内のステアリングファイルとreadme.mdを更新してください。\n\n以下の手順で実行してください：\n\n1. プロジェクト全体のファイル構造を確認する\n2. go.mod と go.sum から依存関係を確認する\n3. 主要なソースファイルの内容を確認する\n\nその後、以下のファイルを更新してください：\n\n1. **structure.md** - 最新のディレクトリ構造と命名規則を反映\n2. **tech.md** - 使用中の技術スタック、ライブラリ、ツールを更新\n3. **product.md** - 新しい機能や変更があれば更新\n4. **readme.md** - Tool目的、導入方法、利用方法、必要なAWS権限を更新\n\n各ファイルの更新時には：\n- 変更前と変更後の差分をハイライトする\n- なぜその変更が必要だったかを説明する\n- 変更がない場合は「変更なし」と報告する"
+  },
+  "workspaceFolderName": "s3t",
+  "shortName": "update-steering-files"
 }

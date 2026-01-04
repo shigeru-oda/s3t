@@ -42,9 +42,6 @@ aws configure
 export AWS_ACCESS_KEY_ID=your-access-key
 export AWS_SECRET_ACCESS_KEY=your-secret-key
 export AWS_REGION=ap-northeast-1
-
-# IAM ロール（EC2/ECS/Lambda 環境）
-# 自動的に認証情報が取得されます
 ```
 
 ## 使い方
@@ -65,7 +62,7 @@ s3t create my-bucket analytics sales
 
 ### 出力例
 
-```
+```text
 === S3 Tables Resource Creation Summary ===
 
   • Table Bucket 'my-bucket' created successfully
@@ -80,7 +77,7 @@ Table ARN: arn:aws:s3tables:ap-northeast-1:123456789012:bucket/my-bucket/table/a
 
 既存リソースがある場合は自動的にスキップされます：
 
-```
+```text
 === S3 Tables Resource Creation Summary ===
 
   • Table Bucket 'my-bucket' already exists
@@ -91,17 +88,38 @@ Created: 1 resource(s)
 Already existed: 2 resource(s)
 ```
 
+### リソース一覧表示
+
+```bash
+# インタラクティブにリソースを探索
+s3t list
+
+# 特定の Table Bucket から開始
+s3t list my-bucket
+
+# 特定の Namespace から開始
+s3t list my-bucket my-namespace
+
+# テーブルの詳細を表示
+s3t list my-bucket my-namespace my-table
+```
+
+インタラクティブモードでは、リアルタイムフィルタリングと階層間ナビゲーションが利用できます。
+
 ## リソース命名規則
 
 ### Table Bucket
+
 - 長さ: 3-63 文字
 - 使用可能文字: 小文字、数字、ハイフン（`-`）
 
 ### Namespace
+
 - 長さ: 1-255 文字
 - 使用可能文字: 小文字、数字、アンダースコア（`_`）
 
 ### Table
+
 - 長さ: 1-255 文字
 - 使用可能文字: 小文字、数字、アンダースコア（`_`）
 
@@ -129,10 +147,13 @@ s3t --version
       "Action": [
         "s3tables:CreateTableBucket",
         "s3tables:GetTableBucket",
+        "s3tables:ListTableBuckets",
         "s3tables:CreateNamespace",
         "s3tables:GetNamespace",
+        "s3tables:ListNamespaces",
         "s3tables:CreateTable",
-        "s3tables:GetTable"
+        "s3tables:GetTable",
+        "s3tables:ListTables"
       ],
       "Resource": "*"
     }

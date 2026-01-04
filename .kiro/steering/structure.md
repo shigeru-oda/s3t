@@ -11,15 +11,24 @@ s3t/
 │   ├── root.go             # ルートコマンド、AWS クライアント初期化、グローバルフラグ
 │   ├── root_property_test.go # root コマンドのプロパティテスト
 │   ├── create.go           # create サブコマンド
-│   └── create_test.go      # create コマンドのテスト
+│   ├── create_test.go      # create コマンドのテスト
+│   ├── list.go             # list サブコマンド（階層的リソース一覧表示）
+│   └── list_test.go        # list コマンドのテスト
 └── internal/               # 内部パッケージ
     └── s3tables/           # S3 Tables ビジネスロジック
         ├── creator.go      # リソース作成ロジック
         ├── creator_property_test.go
+        ├── errors.go       # エラーハンドリング
+        ├── errors_test.go
+        ├── lister.go       # リソース一覧取得（ページネーション対応）
+        ├── lister_property_test.go
+        ├── navigator.go    # 階層的ナビゲーション制御
+        ├── navigator_property_test.go
+        ├── selector.go     # インタラクティブ選択UI（リアルタイムフィルタリング対応）
+        ├── selector_property_test.go
         ├── validation.go   # 入力バリデーション
         ├── validation_property_test.go
-        ├── errors.go       # エラーハンドリング
-        └── errors_test.go
+        └── validation_test.go
 ```
 
 ## ファイル命名規則
@@ -36,13 +45,18 @@ CLI コマンドの定義。Cobra を使用してサブコマンドを構成。
 - `root_property_test.go` - `buildConfigOptions` 関数のプロパティテスト
 - `create.go` - create サブコマンド
 - `create_test.go` - create コマンドのテスト
+- `list.go` - list サブコマンド（階層的リソース一覧表示とインタラクティブナビゲーション）
+- `list_test.go` - list コマンドのテスト
 
 ### internal/s3tables/
 S3 Tables 操作のビジネスロジック。外部パッケージからはインポート不可。
 
 - `creator.go` - リソース作成の主要ロジック
-- `validation.go` - 入力値のバリデーション
 - `errors.go` - エラー型とラッピング
+- `lister.go` - Table Bucket/Namespace/Table の一覧取得（ページネーション対応）
+- `navigator.go` - 階層的ナビゲーション制御（状態管理、キャッシュ、戻る機能）
+- `selector.go` - インタラクティブ選択UI（promptui使用、リアルタイムフィルタリング、部分一致検索）
+- `validation.go` - 入力値のバリデーション
 
 ## AWS S3 Tables リソース制約
 
