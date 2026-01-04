@@ -20,6 +20,8 @@ type S3TablesAPI interface {
 	CreateNamespace(ctx context.Context, params *s3tables.CreateNamespaceInput, optFns ...func(*s3tables.Options)) (*s3tables.CreateNamespaceOutput, error)
 	GetTable(ctx context.Context, params *s3tables.GetTableInput, optFns ...func(*s3tables.Options)) (*s3tables.GetTableOutput, error)
 	CreateTable(ctx context.Context, params *s3tables.CreateTableInput, optFns ...func(*s3tables.Options)) (*s3tables.CreateTableOutput, error)
+	ListNamespaces(ctx context.Context, params *s3tables.ListNamespacesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListNamespacesOutput, error)
+	ListTables(ctx context.Context, params *s3tables.ListTablesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListTablesOutput, error)
 }
 
 // CreateResult represents the result of resource creation

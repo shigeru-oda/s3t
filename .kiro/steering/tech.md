@@ -14,6 +14,9 @@
 - github.com/aws/aws-sdk-go-v2/service/s3tables - S3 Tables API
 - github.com/aws/smithy-go - AWS エラーハンドリング
 
+### インタラクティブUI
+- github.com/manifoldco/promptui - インタラクティブ選択UI（リアルタイムフィルタリング対応）
+
 ### テスト
 - github.com/leanovate/gopter - プロパティベーステスト
 
@@ -42,3 +45,6 @@
 ### テスト
 - プロパティベーステストを活用する
 - モックには interface を使用する
+- `gofmt -l .`を実行してフォーマットを確認する
+- `go test -cover`を実行してテストカバレッジを確認し、100%になることを確認する
+

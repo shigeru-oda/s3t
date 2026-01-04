@@ -59,6 +59,14 @@ func (m *ErrorReturningMockS3TablesAPI) CreateTable(ctx context.Context, params 
 	return &s3tables.CreateTableOutput{TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/t")}, nil
 }
 
+func (m *ErrorReturningMockS3TablesAPI) ListNamespaces(ctx context.Context, params *s3tables.ListNamespacesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListNamespacesOutput, error) {
+	return &s3tables.ListNamespacesOutput{Namespaces: []types.NamespaceSummary{}}, nil
+}
+
+func (m *ErrorReturningMockS3TablesAPI) ListTables(ctx context.Context, params *s3tables.ListTablesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListTablesOutput, error) {
+	return &s3tables.ListTablesOutput{Tables: []types.TableSummary{}}, nil
+}
+
 // TestCheckTableBucketExistsError tests error handling in checkTableBucketExists
 func TestCheckTableBucketExistsError(t *testing.T) {
 	mock := &ErrorReturningMockS3TablesAPI{
@@ -172,6 +180,14 @@ func (m *CreateErrorMockS3TablesAPI) CreateTable(ctx context.Context, params *s3
 	return &s3tables.CreateTableOutput{TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/t")}, nil
 }
 
+func (m *CreateErrorMockS3TablesAPI) ListNamespaces(ctx context.Context, params *s3tables.ListNamespacesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListNamespacesOutput, error) {
+	return &s3tables.ListNamespacesOutput{Namespaces: []types.NamespaceSummary{}}, nil
+}
+
+func (m *CreateErrorMockS3TablesAPI) ListTables(ctx context.Context, params *s3tables.ListTablesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListTablesOutput, error) {
+	return &s3tables.ListTablesOutput{Tables: []types.TableSummary{}}, nil
+}
+
 // TestEnsureTableBucketCreateError tests error handling when CreateTableBucket fails
 func TestEnsureTableBucketCreateError(t *testing.T) {
 	mock := &CreateErrorMockS3TablesAPI{
@@ -253,6 +269,14 @@ func (m *CheckErrorMockS3TablesAPI) GetTable(ctx context.Context, params *s3tabl
 
 func (m *CheckErrorMockS3TablesAPI) CreateTable(ctx context.Context, params *s3tables.CreateTableInput, optFns ...func(*s3tables.Options)) (*s3tables.CreateTableOutput, error) {
 	return &s3tables.CreateTableOutput{TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/t")}, nil
+}
+
+func (m *CheckErrorMockS3TablesAPI) ListNamespaces(ctx context.Context, params *s3tables.ListNamespacesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListNamespacesOutput, error) {
+	return &s3tables.ListNamespacesOutput{Namespaces: []types.NamespaceSummary{}}, nil
+}
+
+func (m *CheckErrorMockS3TablesAPI) ListTables(ctx context.Context, params *s3tables.ListTablesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListTablesOutput, error) {
+	return &s3tables.ListTablesOutput{Tables: []types.TableSummary{}}, nil
 }
 
 // TestEnsureTableBucketCheckError tests error handling when checkTableBucketExists fails in ensureTableBucket
@@ -382,6 +406,14 @@ func (m *MockS3TablesAPI) CreateTable(ctx context.Context, params *s3tables.Crea
 	return &s3tables.CreateTableOutput{
 		TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket/table/test-table"),
 	}, nil
+}
+
+func (m *MockS3TablesAPI) ListNamespaces(ctx context.Context, params *s3tables.ListNamespacesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListNamespacesOutput, error) {
+	return &s3tables.ListNamespacesOutput{Namespaces: []types.NamespaceSummary{}}, nil
+}
+
+func (m *MockS3TablesAPI) ListTables(ctx context.Context, params *s3tables.ListTablesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListTablesOutput, error) {
+	return &s3tables.ListTablesOutput{Tables: []types.TableSummary{}}, nil
 }
 
 // ResourceState represents the existence state of all three resources
@@ -536,6 +568,16 @@ func (m *OrderTrackingMockS3TablesAPI) CreateTable(ctx context.Context, params *
 	return &s3tables.CreateTableOutput{
 		TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket/table/test-table"),
 	}, nil
+}
+
+func (m *OrderTrackingMockS3TablesAPI) ListNamespaces(ctx context.Context, params *s3tables.ListNamespacesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListNamespacesOutput, error) {
+	m.CallOrder = append(m.CallOrder, "ListNamespaces")
+	return &s3tables.ListNamespacesOutput{Namespaces: []types.NamespaceSummary{}}, nil
+}
+
+func (m *OrderTrackingMockS3TablesAPI) ListTables(ctx context.Context, params *s3tables.ListTablesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListTablesOutput, error) {
+	m.CallOrder = append(m.CallOrder, "ListTables")
+	return &s3tables.ListTablesOutput{Tables: []types.TableSummary{}}, nil
 }
 
 // FailureScenario represents which resource creation should fail
