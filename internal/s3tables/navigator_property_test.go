@@ -14,6 +14,63 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
+// TestNavigationLevelString tests NavigationLevel.String() method
+func TestNavigationLevelString(t *testing.T) {
+	tests := []struct {
+		level    NavigationLevel
+		expected string
+	}{
+		{LevelTableBucket, "TableBucket"},
+		{LevelNamespace, "Namespace"},
+		{LevelTable, "Table"},
+		{NavigationLevel(99), "Unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			if got := tt.level.String(); got != tt.expected {
+				t.Errorf("NavigationLevel.String() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestNavigationActionString tests NavigationAction.String() method
+func TestNavigationActionString(t *testing.T) {
+	tests := []struct {
+		action   NavigationAction
+		expected string
+	}{
+		{ActionSelect, "Select"},
+		{ActionBack, "Back"},
+		{ActionExit, "Exit"},
+		{NavigationAction(99), "Unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.expected, func(t *testing.T) {
+			if got := tt.action.String(); got != tt.expected {
+				t.Errorf("NavigationAction.String() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+// TestGetState tests GetState method
+func TestGetState(t *testing.T) {
+	lister := NewS3TablesLister(&PaginatedMockS3TablesAPI{})
+	selector := &MockInteractiveSelector{}
+	controller := NewNavigationController(lister, selector)
+
+	state := controller.GetState()
+	if state == nil {
+		t.Error("GetState() returned nil")
+	}
+	if state != controller.state {
+		t.Error("GetState() returned different state object")
+	}
+}
+
 // MockInteractiveSelector for testing navigation
 type MockInteractiveSelector struct {
 	SelectWithFilterFunc func(label string, items []string, showBack bool) (*SelectionResult, error)
@@ -888,4 +945,561 @@ func TestPropertyBackNavigationUsesCachedData(t *testing.T) {
 	))
 
 	properties.TestingRun(t)
+}
+
+// TestNavigateTableBucketsError tests navigateTableBuckets error handling
+func TestNavigateTableBucketsError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		ListTableBucketsError: fmt.Errorf("api error"),
+		PageSize:              10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{}
+	controller := NewNavigationController(lister, selector)
+
+	action, err := controller.navigateTableBuckets(context.Background())
+	if err == nil {
+		t.Error("navigateTableBuckets() should return error")
+	}
+	if action != ActionExit {
+		t.Errorf("navigateTableBuckets() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateTableBucketsSelectorError tests navigateTableBuckets selector error
+func TestNavigateTableBucketsSelectorError(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			return nil, fmt.Errorf("selector error")
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	action, err := controller.navigateTableBuckets(context.Background())
+	if err == nil {
+		t.Error("navigateTableBuckets() should return error")
+	}
+	if action != ActionExit {
+		t.Errorf("navigateTableBuckets() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateTableBucketsExit tests navigateTableBuckets exit action
+func TestNavigateTableBucketsExit(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			return &SelectionResult{Action: ActionExit}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	action, err := controller.navigateTableBuckets(context.Background())
+	if err != nil {
+		t.Errorf("navigateTableBuckets() error = %v", err)
+	}
+	if action != ActionExit {
+		t.Errorf("navigateTableBuckets() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateNamespacesError tests navigateNamespaces error handling
+func TestNavigateNamespacesError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		ListNamespacesError: fmt.Errorf("api error"),
+		PageSize:            10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{}
+	controller := NewNavigationController(lister, selector)
+	controller.SetInitialState("test-bucket", "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", "")
+
+	action, err := controller.navigateNamespaces(context.Background())
+	if err == nil {
+		t.Error("navigateNamespaces() should return error")
+	}
+	if action != ActionExit {
+		t.Errorf("navigateNamespaces() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateNamespacesSelectorError tests navigateNamespaces selector error
+func TestNavigateNamespacesSelectorError(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now)},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			return nil, fmt.Errorf("selector error")
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+	controller.SetInitialState("test-bucket", "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", "")
+
+	action, err := controller.navigateNamespaces(context.Background())
+	if err == nil {
+		t.Error("navigateNamespaces() should return error")
+	}
+	if action != ActionExit {
+		t.Errorf("navigateNamespaces() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateNamespacesExit tests navigateNamespaces exit action
+func TestNavigateNamespacesExit(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now)},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			return &SelectionResult{Action: ActionExit}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+	controller.SetInitialState("test-bucket", "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", "")
+
+	action, err := controller.navigateNamespaces(context.Background())
+	if err != nil {
+		t.Errorf("navigateNamespaces() error = %v", err)
+	}
+	if action != ActionExit {
+		t.Errorf("navigateNamespaces() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateTablesError tests navigateTables error handling
+func TestNavigateTablesError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		ListTablesError: fmt.Errorf("api error"),
+		PageSize:        10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{}
+	controller := NewNavigationController(lister, selector)
+	controller.SetInitialState("test-bucket", "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", "test_ns")
+
+	action, err := controller.navigateTables(context.Background())
+	if err == nil {
+		t.Error("navigateTables() should return error")
+	}
+	if action != ActionExit {
+		t.Errorf("navigateTables() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateTablesSelectorError tests navigateTables selector error
+func TestNavigateTablesSelectorError(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Tables: []types.TableSummary{
+			{Name: aws.String("table-1"), TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/table-1"), Namespace: []string{"test_ns"}, CreatedAt: aws.Time(now), Type: types.TableTypeCustomer},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			return nil, fmt.Errorf("selector error")
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+	controller.SetInitialState("test-bucket", "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", "test_ns")
+
+	action, err := controller.navigateTables(context.Background())
+	if err == nil {
+		t.Error("navigateTables() should return error")
+	}
+	if action != ActionExit {
+		t.Errorf("navigateTables() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateTablesExit tests navigateTables exit action
+func TestNavigateTablesExit(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Tables: []types.TableSummary{
+			{Name: aws.String("table-1"), TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/table-1"), Namespace: []string{"test_ns"}, CreatedAt: aws.Time(now), Type: types.TableTypeCustomer},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			return &SelectionResult{Action: ActionExit}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+	controller.SetInitialState("test-bucket", "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", "test_ns")
+
+	action, err := controller.navigateTables(context.Background())
+	if err != nil {
+		t.Errorf("navigateTables() error = %v", err)
+	}
+	if action != ActionExit {
+		t.Errorf("navigateTables() action = %v, want ActionExit", action)
+	}
+}
+
+// TestNavigateFromNamespaceLevel tests Navigate starting from namespace level
+func TestNavigateFromNamespaceLevel(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now)},
+		},
+		Tables: []types.TableSummary{
+			{Name: aws.String("table-1"), TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/table-1"), Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now), Type: types.TableTypeCustomer},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	callCount := 0
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			callCount++
+			if callCount == 1 {
+				// Select namespace
+				return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+			}
+			// Select table
+			return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+	controller.SetInitialState("test-bucket", "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", "")
+
+	err := controller.Navigate(context.Background(), LevelNamespace)
+	if err != nil {
+		t.Errorf("Navigate() error = %v", err)
+	}
+	if callCount != 2 {
+		t.Errorf("Navigate() callCount = %v, want 2", callCount)
+	}
+}
+
+// TestNavigateFromTableLevel tests Navigate starting from table level
+func TestNavigateFromTableLevel(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Tables: []types.TableSummary{
+			{Name: aws.String("table-1"), TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/table-1"), Namespace: []string{"test_ns"}, CreatedAt: aws.Time(now), Type: types.TableTypeCustomer},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+	controller.SetInitialState("test-bucket", "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", "test_ns")
+
+	err := controller.Navigate(context.Background(), LevelTable)
+	if err != nil {
+		t.Errorf("Navigate() error = %v", err)
+	}
+}
+
+// TestNavigateNamespaceExitFromNavigate tests Navigate exit from namespace level
+func TestNavigateNamespaceExitFromNavigate(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now)},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	callCount := 0
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			callCount++
+			if callCount == 1 {
+				// Select bucket
+				return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+			}
+			// Exit from namespace
+			return &SelectionResult{Action: ActionExit}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err != nil {
+		t.Errorf("Navigate() error = %v", err)
+	}
+}
+
+// TestNavigateTableExitFromNavigate tests Navigate exit from table level
+func TestNavigateTableExitFromNavigate(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now)},
+		},
+		Tables: []types.TableSummary{
+			{Name: aws.String("table-1"), TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/table-1"), Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now), Type: types.TableTypeCustomer},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	callCount := 0
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			callCount++
+			if callCount == 1 {
+				// Select bucket
+				return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+			}
+			if callCount == 2 {
+				// Select namespace
+				return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+			}
+			// Exit from table
+			return &SelectionResult{Action: ActionExit}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err != nil {
+		t.Errorf("Navigate() error = %v", err)
+	}
+}
+
+// TestNavigateTableBackFromNavigate tests Navigate back from table level
+func TestNavigateTableBackFromNavigate(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now)},
+		},
+		Tables: []types.TableSummary{
+			{Name: aws.String("table-1"), TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/table-1"), Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now), Type: types.TableTypeCustomer},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	callCount := 0
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			callCount++
+			switch callCount {
+			case 1:
+				// Select bucket
+				return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+			case 2:
+				// Select namespace
+				return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+			case 3:
+				// Back from table
+				return &SelectionResult{Action: ActionBack}, nil
+			case 4:
+				// Back from namespace
+				return &SelectionResult{Action: ActionBack}, nil
+			default:
+				// Exit from bucket
+				return &SelectionResult{Action: ActionBack}, nil
+			}
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err != nil {
+		t.Errorf("Navigate() error = %v", err)
+	}
+}
+
+// TestNavigateTableBucketError tests Navigate with table bucket error
+func TestNavigateTableBucketError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		ListTableBucketsError: fmt.Errorf("api error"),
+		PageSize:              10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err == nil {
+		t.Error("Navigate() should return error")
+	}
+}
+
+// TestNavigateNamespaceError tests Navigate with namespace error
+func TestNavigateNamespaceError(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		ListNamespacesError: fmt.Errorf("api error"),
+		PageSize:            10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	callCount := 0
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			callCount++
+			return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err == nil {
+		t.Error("Navigate() should return error")
+	}
+}
+
+// TestNavigateTableError tests Navigate with table error
+func TestNavigateTableError(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now)},
+		},
+		ListTablesError: fmt.Errorf("api error"),
+		PageSize:        10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	callCount := 0
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			callCount++
+			return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err == nil {
+		t.Error("Navigate() should return error")
+	}
+}
+
+// TestNavigateEmptyTableBuckets tests Navigate with empty table buckets
+func TestNavigateEmptyTableBuckets(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{},
+		PageSize:     10,
+	}
+	lister := NewS3TablesLister(mock)
+	selector := &MockInteractiveSelector{}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err != nil {
+		t.Errorf("Navigate() error = %v", err)
+	}
+}
+
+// TestNavigateEmptyNamespaces tests Navigate with empty namespaces
+func TestNavigateEmptyNamespaces(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		Namespaces: []types.NamespaceSummary{},
+		PageSize:   10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	callCount := 0
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			callCount++
+			if callCount == 1 {
+				return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+			}
+			return &SelectionResult{Action: ActionBack}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err != nil {
+		t.Errorf("Navigate() error = %v", err)
+	}
+}
+
+// TestNavigateEmptyTables tests Navigate with empty tables
+func TestNavigateEmptyTables(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("bucket-1"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/bucket-1"), CreatedAt: aws.Time(now)},
+		},
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"ns-1"}, CreatedAt: aws.Time(now)},
+		},
+		Tables:   []types.TableSummary{},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	callCount := 0
+	selector := &MockInteractiveSelector{
+		SelectWithFilterFunc: func(label string, items []string, showBack bool) (*SelectionResult, error) {
+			callCount++
+			if callCount <= 2 {
+				return &SelectionResult{Selected: items[0], Action: ActionSelect}, nil
+			}
+			return &SelectionResult{Action: ActionBack}, nil
+		},
+	}
+	controller := NewNavigationController(lister, selector)
+
+	err := controller.Navigate(context.Background(), LevelTableBucket)
+	if err != nil {
+		t.Errorf("Navigate() error = %v", err)
+	}
 }

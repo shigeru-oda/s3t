@@ -2,6 +2,7 @@ package s3tables
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"testing"
@@ -31,11 +32,24 @@ type PaginatedMockS3TablesAPI struct {
 	OnListTableBuckets func()
 	OnListNamespaces   func()
 	OnListTables       func()
+
+	// Error simulation
+	ListTableBucketsError error
+	ListNamespacesError   error
+	ListTablesError       error
+	GetTableError         error
+
+	// GetTable response
+	GetTableResponse *s3tables.GetTableOutput
 }
 
 func (m *PaginatedMockS3TablesAPI) ListTableBuckets(ctx context.Context, params *s3tables.ListTableBucketsInput, optFns ...func(*s3tables.Options)) (*s3tables.ListTableBucketsOutput, error) {
 	if m.OnListTableBuckets != nil {
 		m.OnListTableBuckets()
+	}
+
+	if m.ListTableBucketsError != nil {
+		return nil, m.ListTableBucketsError
 	}
 
 	startIndex := 0
@@ -77,6 +91,12 @@ func (m *PaginatedMockS3TablesAPI) CreateNamespace(ctx context.Context, params *
 }
 
 func (m *PaginatedMockS3TablesAPI) GetTable(ctx context.Context, params *s3tables.GetTableInput, optFns ...func(*s3tables.Options)) (*s3tables.GetTableOutput, error) {
+	if m.GetTableError != nil {
+		return nil, m.GetTableError
+	}
+	if m.GetTableResponse != nil {
+		return m.GetTableResponse, nil
+	}
 	return nil, &types.NotFoundException{Message: aws.String("not found")}
 }
 
@@ -87,6 +107,10 @@ func (m *PaginatedMockS3TablesAPI) CreateTable(ctx context.Context, params *s3ta
 func (m *PaginatedMockS3TablesAPI) ListNamespaces(ctx context.Context, params *s3tables.ListNamespacesInput, optFns ...func(*s3tables.Options)) (*s3tables.ListNamespacesOutput, error) {
 	if m.OnListNamespaces != nil {
 		m.OnListNamespaces()
+	}
+
+	if m.ListNamespacesError != nil {
+		return nil, m.ListNamespacesError
 	}
 
 	startIndex := 0
@@ -116,6 +140,10 @@ func (m *PaginatedMockS3TablesAPI) ListTables(ctx context.Context, params *s3tab
 		m.OnListTables()
 	}
 
+	if m.ListTablesError != nil {
+		return nil, m.ListTablesError
+	}
+
 	startIndex := 0
 	if params.ContinuationToken != nil && *params.ContinuationToken != "" {
 		_, _ = fmt.Sscanf(*params.ContinuationToken, "%d", &startIndex)
@@ -136,6 +164,147 @@ func (m *PaginatedMockS3TablesAPI) ListTables(ctx context.Context, params *s3tab
 		Tables:            m.Tables[startIndex:endIndex],
 		ContinuationToken: nextToken,
 	}, nil
+}
+
+// TestListTableBucketsAllError tests ListTableBucketsAll error handling
+func TestListTableBucketsAllError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		ListTableBucketsError: errors.New("api error"),
+		PageSize:              10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	_, err := lister.ListTableBucketsAll(context.Background(), "")
+	if err == nil {
+		t.Error("ListTableBucketsAll() should return error")
+	}
+}
+
+// TestListNamespacesAllError tests ListNamespacesAll error handling
+func TestListNamespacesAllError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		ListNamespacesError: errors.New("api error"),
+		PageSize:            10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	_, err := lister.ListNamespacesAll(context.Background(), "arn:aws:s3tables:us-east-1:123456789012:bucket/test", "")
+	if err == nil {
+		t.Error("ListNamespacesAll() should return error")
+	}
+}
+
+// TestListTablesAllError tests ListTablesAll error handling
+func TestListTablesAllError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		ListTablesError: errors.New("api error"),
+		PageSize:        10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	_, err := lister.ListTablesAll(context.Background(), "arn:aws:s3tables:us-east-1:123456789012:bucket/test", "test_ns", "")
+	if err == nil {
+		t.Error("ListTablesAll() should return error")
+	}
+}
+
+// TestGetTableDetailsSuccess tests GetTableDetails success case
+func TestGetTableDetailsSuccess(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		GetTableResponse: &s3tables.GetTableOutput{
+			Name:      aws.String("test-table"),
+			TableARN:  aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/test-table"),
+			CreatedAt: aws.Time(now),
+			Type:      types.TableTypeCustomer,
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	result, err := lister.GetTableDetails(context.Background(), "arn:aws:s3tables:us-east-1:123456789012:bucket/test", "test_ns", "test-table")
+	if err != nil {
+		t.Errorf("GetTableDetails() error = %v", err)
+	}
+	if result.Name != "test-table" {
+		t.Errorf("GetTableDetails() Name = %v, want test-table", result.Name)
+	}
+}
+
+// TestGetTableDetailsError tests GetTableDetails error handling
+func TestGetTableDetailsError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		GetTableError: errors.New("api error"),
+		PageSize:      10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	_, err := lister.GetTableDetails(context.Background(), "arn:aws:s3tables:us-east-1:123456789012:bucket/test", "test_ns", "test-table")
+	if err == nil {
+		t.Error("GetTableDetails() should return error")
+	}
+}
+
+// TestGetTableBucketARNSuccess tests GetTableBucketARN success case
+func TestGetTableBucketARNSuccess(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{
+				Name:      aws.String("test-bucket"),
+				Arn:       aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket"),
+				CreatedAt: aws.Time(now),
+			},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	arn, err := lister.GetTableBucketARN(context.Background(), "test-bucket")
+	if err != nil {
+		t.Errorf("GetTableBucketARN() error = %v", err)
+	}
+	if arn != "arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket" {
+		t.Errorf("GetTableBucketARN() = %v, want arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket", arn)
+	}
+}
+
+// TestGetTableBucketARNNotFound tests GetTableBucketARN not found case
+func TestGetTableBucketARNNotFound(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{
+				Name:      aws.String("other-bucket"),
+				Arn:       aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/other-bucket"),
+				CreatedAt: aws.Time(now),
+			},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	_, err := lister.GetTableBucketARN(context.Background(), "test-bucket")
+	if err == nil {
+		t.Error("GetTableBucketARN() should return error for not found bucket")
+	}
+	if !IsNotFoundError(err) {
+		t.Errorf("GetTableBucketARN() error should be NotFoundError, got %v", err)
+	}
+}
+
+// TestGetTableBucketARNListError tests GetTableBucketARN list error case
+func TestGetTableBucketARNListError(t *testing.T) {
+	mock := &PaginatedMockS3TablesAPI{
+		ListTableBucketsError: errors.New("api error"),
+		PageSize:              10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	_, err := lister.GetTableBucketARN(context.Background(), "test-bucket")
+	if err == nil {
+		t.Error("GetTableBucketARN() should return error")
+	}
 }
 
 // PaginationTestInput represents the input for pagination property tests
@@ -294,4 +463,110 @@ func TestPropertyPaginationAggregatesAllResources(t *testing.T) {
 	))
 
 	properties.TestingRun(t)
+}
+
+// TestListTableBucketsAllWithPrefix tests ListTableBucketsAll with prefix
+func TestListTableBucketsAllWithPrefix(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		TableBuckets: []types.TableBucketSummary{
+			{Name: aws.String("test-bucket"), Arn: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test-bucket"), CreatedAt: aws.Time(now)},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	result, err := lister.ListTableBucketsAll(context.Background(), "test")
+	if err != nil {
+		t.Errorf("ListTableBucketsAll() error = %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("ListTableBucketsAll() len = %v, want 1", len(result))
+	}
+}
+
+// TestListNamespacesAllWithPrefix tests ListNamespacesAll with prefix
+func TestListNamespacesAllWithPrefix(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{"test_ns"}, CreatedAt: aws.Time(now)},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	result, err := lister.ListNamespacesAll(context.Background(), "arn:aws:s3tables:us-east-1:123456789012:bucket/test", "test")
+	if err != nil {
+		t.Errorf("ListNamespacesAll() error = %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("ListNamespacesAll() len = %v, want 1", len(result))
+	}
+}
+
+// TestListTablesAllWithPrefix tests ListTablesAll with prefix
+func TestListTablesAllWithPrefix(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Tables: []types.TableSummary{
+			{Name: aws.String("test_table"), TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/test_table"), Namespace: []string{"test_ns"}, CreatedAt: aws.Time(now), Type: types.TableTypeCustomer},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	result, err := lister.ListTablesAll(context.Background(), "arn:aws:s3tables:us-east-1:123456789012:bucket/test", "test_ns", "test")
+	if err != nil {
+		t.Errorf("ListTablesAll() error = %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("ListTablesAll() len = %v, want 1", len(result))
+	}
+}
+
+// TestListNamespacesAllEmptyNamespace tests ListNamespacesAll with empty namespace array
+func TestListNamespacesAllEmptyNamespace(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Namespaces: []types.NamespaceSummary{
+			{Namespace: []string{}, CreatedAt: aws.Time(now)},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	result, err := lister.ListNamespacesAll(context.Background(), "arn:aws:s3tables:us-east-1:123456789012:bucket/test", "")
+	if err != nil {
+		t.Errorf("ListNamespacesAll() error = %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("ListNamespacesAll() len = %v, want 1", len(result))
+	}
+	if result[0].Name != "" {
+		t.Errorf("ListNamespacesAll() Name = %v, want empty string", result[0].Name)
+	}
+}
+
+// TestListTablesAllEmptyNamespace tests ListTablesAll with empty namespace array
+func TestListTablesAllEmptyNamespace(t *testing.T) {
+	now := time.Now()
+	mock := &PaginatedMockS3TablesAPI{
+		Tables: []types.TableSummary{
+			{Name: aws.String("test_table"), TableARN: aws.String("arn:aws:s3tables:us-east-1:123456789012:bucket/test/table/test_table"), Namespace: []string{}, CreatedAt: aws.Time(now), Type: types.TableTypeCustomer},
+		},
+		PageSize: 10,
+	}
+	lister := NewS3TablesLister(mock)
+
+	result, err := lister.ListTablesAll(context.Background(), "arn:aws:s3tables:us-east-1:123456789012:bucket/test", "test_ns", "")
+	if err != nil {
+		t.Errorf("ListTablesAll() error = %v", err)
+	}
+	if len(result) != 1 {
+		t.Errorf("ListTablesAll() len = %v, want 1", len(result))
+	}
+	if result[0].Namespace != "" {
+		t.Errorf("ListTablesAll() Namespace = %v, want empty string", result[0].Namespace)
+	}
 }

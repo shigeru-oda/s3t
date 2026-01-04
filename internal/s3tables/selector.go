@@ -27,12 +27,27 @@ type Selector interface {
 	Select(label string, items []string) (string, error)
 }
 
+// promptRunner abstracts promptui.Select.Run for testing
+type promptRunner interface {
+	Run() (int, string, error)
+}
+
 // PromptSelector implements Selector using promptui
-type PromptSelector struct{}
+type PromptSelector struct {
+	// runFunc allows overriding the prompt runner for testing
+	runFunc func(prompt promptRunner) (int, string, error)
+}
 
 // NewPromptSelector creates a new PromptSelector
 func NewPromptSelector() *PromptSelector {
-	return &PromptSelector{}
+	return &PromptSelector{
+		runFunc: defaultPromptRun,
+	}
+}
+
+// defaultPromptRun is the default implementation that calls prompt.Run()
+func defaultPromptRun(prompt promptRunner) (int, string, error) {
+	return prompt.Run()
 }
 
 // Select displays a selection prompt and returns the chosen item
@@ -41,13 +56,13 @@ func (s *PromptSelector) Select(label string, items []string) (string, error) {
 		return "", fmt.Errorf("no items to select")
 	}
 
-	prompt := promptui.Select{
+	prompt := &promptui.Select{
 		Label: label,
 		Items: items,
 		Size:  10,
 	}
 
-	idx, _, err := prompt.Run()
+	idx, _, err := s.runFunc(prompt)
 	if err != nil {
 		return "", fmt.Errorf("selection failed: %w", err)
 	}
@@ -59,11 +74,25 @@ func (s *PromptSelector) Select(label string, items []string) (string, error) {
 const BackOption = ".. (Back)"
 
 // FilterablePromptSelector implements InteractiveSelector with filtering
-type FilterablePromptSelector struct{}
+type FilterablePromptSelector struct {
+	// runFunc allows overriding the prompt runner for testing
+	runFunc func(prompt promptRunner) (int, string, error)
+}
 
 // NewFilterablePromptSelector creates a new FilterablePromptSelector
 func NewFilterablePromptSelector() *FilterablePromptSelector {
-	return &FilterablePromptSelector{}
+	return &FilterablePromptSelector{
+		runFunc: defaultPromptRun,
+	}
+}
+
+// createSearcher creates a searcher function for substring matching
+func createSearcher(items []string) func(string, int) bool {
+	return func(input string, index int) bool {
+		item := strings.ToLower(items[index])
+		input = strings.ToLower(input)
+		return strings.Contains(item, input)
+	}
 }
 
 // SelectWithFilter displays a selection prompt with real-time filtering
@@ -80,24 +109,15 @@ func (s *FilterablePromptSelector) SelectWithFilter(label string, items []string
 		displayItems = append([]string{BackOption}, items...)
 	}
 
-	// Searcher function for real-time filtering
-	// Automatically performs substring matching (equivalent to *input* pattern)
-	searcher := func(input string, index int) bool {
-		item := strings.ToLower(displayItems[index])
-		input = strings.ToLower(input)
-		// Automatic substring search (case-insensitive)
-		return strings.Contains(item, input)
-	}
-
-	prompt := promptui.Select{
+	prompt := &promptui.Select{
 		Label:             label,
 		Items:             displayItems,
 		Size:              10,
-		Searcher:          searcher,
+		Searcher:          createSearcher(displayItems),
 		StartInSearchMode: false,
 	}
 
-	idx, selected, err := prompt.Run()
+	idx, selected, err := s.runFunc(prompt)
 	if err != nil {
 		// Ctrl+C triggers ErrInterrupt - treat as exit
 		if err == promptui.ErrInterrupt {

@@ -1,13 +1,238 @@
 package s3tables
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
+	"github.com/manifoldco/promptui"
 )
+
+// TestNewPromptSelector tests NewPromptSelector constructor
+func TestNewPromptSelector(t *testing.T) {
+	selector := NewPromptSelector()
+	if selector == nil {
+		t.Error("NewPromptSelector() returned nil")
+	}
+	if selector.runFunc == nil {
+		t.Error("NewPromptSelector() runFunc is nil")
+	}
+}
+
+// TestNewFilterablePromptSelector tests NewFilterablePromptSelector constructor
+func TestNewFilterablePromptSelector(t *testing.T) {
+	selector := NewFilterablePromptSelector()
+	if selector == nil {
+		t.Error("NewFilterablePromptSelector() returned nil")
+	}
+	if selector.runFunc == nil {
+		t.Error("NewFilterablePromptSelector() runFunc is nil")
+	}
+}
+
+// TestPromptSelectorSelectEmptyItems tests Select with empty items
+func TestPromptSelectorSelectEmptyItems(t *testing.T) {
+	selector := NewPromptSelector()
+	_, err := selector.Select("Test", []string{})
+	if err == nil {
+		t.Error("Select() with empty items should return error")
+	}
+	if err.Error() != "no items to select" {
+		t.Errorf("Select() error = %v, want 'no items to select'", err)
+	}
+}
+
+// TestFilterablePromptSelectorSelectWithFilterEmptyItems tests SelectWithFilter with empty items
+func TestFilterablePromptSelectorSelectWithFilterEmptyItems(t *testing.T) {
+	selector := NewFilterablePromptSelector()
+	_, err := selector.SelectWithFilter("Test", []string{}, false)
+	if err == nil {
+		t.Error("SelectWithFilter() with empty items should return error")
+	}
+	if err.Error() != "no items to select" {
+		t.Errorf("SelectWithFilter() error = %v, want 'no items to select'", err)
+	}
+}
+
+// TestPromptSelectorSelectSuccess tests Select success case
+func TestPromptSelectorSelectSuccess(t *testing.T) {
+	selector := &PromptSelector{
+		runFunc: func(prompt promptRunner) (int, string, error) {
+			return 0, "item1", nil
+		},
+	}
+
+	result, err := selector.Select("Test", []string{"item1", "item2"})
+	if err != nil {
+		t.Errorf("Select() error = %v", err)
+	}
+	if result != "item1" {
+		t.Errorf("Select() = %v, want item1", result)
+	}
+}
+
+// TestPromptSelectorSelectError tests Select error case
+func TestPromptSelectorSelectError(t *testing.T) {
+	selector := &PromptSelector{
+		runFunc: func(prompt promptRunner) (int, string, error) {
+			return 0, "", errors.New("prompt error")
+		},
+	}
+
+	_, err := selector.Select("Test", []string{"item1", "item2"})
+	if err == nil {
+		t.Error("Select() should return error")
+	}
+	if !strings.Contains(err.Error(), "selection failed") {
+		t.Errorf("Select() error = %v, want 'selection failed'", err)
+	}
+}
+
+// TestFilterablePromptSelectorSelectWithFilterSuccess tests SelectWithFilter success case
+func TestFilterablePromptSelectorSelectWithFilterSuccess(t *testing.T) {
+	selector := &FilterablePromptSelector{
+		runFunc: func(prompt promptRunner) (int, string, error) {
+			return 0, "item1", nil
+		},
+	}
+
+	result, err := selector.SelectWithFilter("Test", []string{"item1", "item2"}, false)
+	if err != nil {
+		t.Errorf("SelectWithFilter() error = %v", err)
+	}
+	if result.Selected != "item1" {
+		t.Errorf("SelectWithFilter() Selected = %v, want item1", result.Selected)
+	}
+	if result.Action != ActionSelect {
+		t.Errorf("SelectWithFilter() Action = %v, want ActionSelect", result.Action)
+	}
+}
+
+// TestFilterablePromptSelectorSelectWithFilterBack tests SelectWithFilter back option
+func TestFilterablePromptSelectorSelectWithFilterBack(t *testing.T) {
+	selector := &FilterablePromptSelector{
+		runFunc: func(prompt promptRunner) (int, string, error) {
+			return 0, BackOption, nil
+		},
+	}
+
+	result, err := selector.SelectWithFilter("Test", []string{"item1", "item2"}, true)
+	if err != nil {
+		t.Errorf("SelectWithFilter() error = %v", err)
+	}
+	if result.Action != ActionBack {
+		t.Errorf("SelectWithFilter() Action = %v, want ActionBack", result.Action)
+	}
+}
+
+// TestFilterablePromptSelectorSelectWithFilterInterrupt tests SelectWithFilter interrupt
+func TestFilterablePromptSelectorSelectWithFilterInterrupt(t *testing.T) {
+	selector := &FilterablePromptSelector{
+		runFunc: func(prompt promptRunner) (int, string, error) {
+			return 0, "", promptui.ErrInterrupt
+		},
+	}
+
+	result, err := selector.SelectWithFilter("Test", []string{"item1", "item2"}, false)
+	if err != nil {
+		t.Errorf("SelectWithFilter() error = %v", err)
+	}
+	if result.Action != ActionExit {
+		t.Errorf("SelectWithFilter() Action = %v, want ActionExit", result.Action)
+	}
+}
+
+// TestFilterablePromptSelectorSelectWithFilterError tests SelectWithFilter error case
+func TestFilterablePromptSelectorSelectWithFilterError(t *testing.T) {
+	selector := &FilterablePromptSelector{
+		runFunc: func(prompt promptRunner) (int, string, error) {
+			return 0, "", errors.New("prompt error")
+		},
+	}
+
+	_, err := selector.SelectWithFilter("Test", []string{"item1", "item2"}, false)
+	if err == nil {
+		t.Error("SelectWithFilter() should return error")
+	}
+	if !strings.Contains(err.Error(), "selection failed") {
+		t.Errorf("SelectWithFilter() error = %v, want 'selection failed'", err)
+	}
+}
+
+// TestFilterablePromptSelectorSelectWithFilterNoBack tests SelectWithFilter without back option
+func TestFilterablePromptSelectorSelectWithFilterNoBack(t *testing.T) {
+	selector := &FilterablePromptSelector{
+		runFunc: func(prompt promptRunner) (int, string, error) {
+			return 1, "item2", nil
+		},
+	}
+
+	result, err := selector.SelectWithFilter("Test", []string{"item1", "item2"}, false)
+	if err != nil {
+		t.Errorf("SelectWithFilter() error = %v", err)
+	}
+	if result.Selected != "item2" {
+		t.Errorf("SelectWithFilter() Selected = %v, want item2", result.Selected)
+	}
+	if result.Action != ActionSelect {
+		t.Errorf("SelectWithFilter() Action = %v, want ActionSelect", result.Action)
+	}
+}
+
+// TestFilterablePromptSelectorSelectWithFilterWithBackSelectItem tests SelectWithFilter with back option selecting item
+func TestFilterablePromptSelectorSelectWithFilterWithBackSelectItem(t *testing.T) {
+	selector := &FilterablePromptSelector{
+		runFunc: func(prompt promptRunner) (int, string, error) {
+			return 1, "item1", nil
+		},
+	}
+
+	result, err := selector.SelectWithFilter("Test", []string{"item1", "item2"}, true)
+	if err != nil {
+		t.Errorf("SelectWithFilter() error = %v", err)
+	}
+	if result.Selected != "item1" {
+		t.Errorf("SelectWithFilter() Selected = %v, want item1", result.Selected)
+	}
+	if result.Action != ActionSelect {
+		t.Errorf("SelectWithFilter() Action = %v, want ActionSelect", result.Action)
+	}
+}
+
+// TestDefaultPromptRun tests defaultPromptRun function
+func TestDefaultPromptRun(t *testing.T) {
+	// Create a mock prompt runner
+	mockRunner := &mockPromptRunner{
+		idx:      1,
+		selected: "test",
+		err:      nil,
+	}
+
+	idx, selected, err := defaultPromptRun(mockRunner)
+	if err != nil {
+		t.Errorf("defaultPromptRun() error = %v", err)
+	}
+	if idx != 1 {
+		t.Errorf("defaultPromptRun() idx = %v, want 1", idx)
+	}
+	if selected != "test" {
+		t.Errorf("defaultPromptRun() selected = %v, want test", selected)
+	}
+}
+
+// mockPromptRunner implements promptRunner for testing
+type mockPromptRunner struct {
+	idx      int
+	selected string
+	err      error
+}
+
+func (m *mockPromptRunner) Run() (int, string, error) {
+	return m.idx, m.selected, m.err
+}
 
 // substringFilter is the reference implementation for substring filtering
 // Used to verify the filtering logic in FilterablePromptSelector
@@ -209,4 +434,33 @@ func TestPropertySubstringMatchingIsAutomatic(t *testing.T) {
 	))
 
 	properties.TestingRun(t)
+}
+
+// TestCreateSearcher tests createSearcher function
+func TestCreateSearcher(t *testing.T) {
+	items := []string{"Apple", "Banana", "Cherry"}
+	searcher := createSearcher(items)
+
+	tests := []struct {
+		input    string
+		index    int
+		expected bool
+	}{
+		{"app", 0, true},    // "app" matches "Apple"
+		{"APP", 0, true},    // case-insensitive
+		{"ban", 1, true},    // "ban" matches "Banana"
+		{"xyz", 0, false},   // "xyz" doesn't match "Apple"
+		{"", 0, true},       // empty string matches everything
+		{"cherry", 2, true}, // exact match
+		{"err", 2, true},    // substring match
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			result := searcher(tt.input, tt.index)
+			if result != tt.expected {
+				t.Errorf("createSearcher()(%q, %d) = %v, want %v", tt.input, tt.index, result, tt.expected)
+			}
+		})
+	}
 }
