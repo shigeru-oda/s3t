@@ -40,7 +40,7 @@ func (m *PaginatedMockS3TablesAPI) ListTableBuckets(ctx context.Context, params 
 
 	startIndex := 0
 	if params.ContinuationToken != nil && *params.ContinuationToken != "" {
-		fmt.Sscanf(*params.ContinuationToken, "%d", &startIndex)
+		_, _ = fmt.Sscanf(*params.ContinuationToken, "%d", &startIndex)
 	}
 
 	endIndex := startIndex + m.PageSize
@@ -91,7 +91,7 @@ func (m *PaginatedMockS3TablesAPI) ListNamespaces(ctx context.Context, params *s
 
 	startIndex := 0
 	if params.ContinuationToken != nil && *params.ContinuationToken != "" {
-		fmt.Sscanf(*params.ContinuationToken, "%d", &startIndex)
+		_, _ = fmt.Sscanf(*params.ContinuationToken, "%d", &startIndex)
 	}
 
 	endIndex := startIndex + m.PageSize
@@ -118,7 +118,7 @@ func (m *PaginatedMockS3TablesAPI) ListTables(ctx context.Context, params *s3tab
 
 	startIndex := 0
 	if params.ContinuationToken != nil && *params.ContinuationToken != "" {
-		fmt.Sscanf(*params.ContinuationToken, "%d", &startIndex)
+		_, _ = fmt.Sscanf(*params.ContinuationToken, "%d", &startIndex)
 	}
 
 	endIndex := startIndex + m.PageSize
