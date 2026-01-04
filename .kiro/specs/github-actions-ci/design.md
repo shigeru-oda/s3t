@@ -40,11 +40,20 @@ flowchart TD
 
 ### ワークフロー構成
 
-単一ジョブ構成を採用し、以下の理由から並列実行ではなく順次実行とする：
+並列ジョブ構成を採用し、以下の理由から並列実行とする：
 
-1. **依存関係の共有**: Go モジュールキャッシュを効率的に再利用
-2. **シンプルさ**: 単一ジョブで管理が容易
-3. **コスト効率**: GitHub Actions の無料枠を効率的に使用
+1. **実行時間短縮**: 各ジョブが同時に実行されるため、全体の CI 時間が短縮
+2. **早期フィードバック**: 失敗したジョブが他のジョブを待たずに結果を返す
+3. **キャッシュ共有**: `actions/setup-go@v5` の `cache: true` で各ジョブがキャッシュを共有
+
+**ジョブ構成:**
+- `test`: テスト実行 + カバレッジ生成
+- `build`: ビルド検証
+- `lint`: 静的解析
+- `format`: フォーマットチェック
+- `dependencies`: 依存関係チェック
+- `security`: セキュリティスキャン
+- `coverage`: カバレッジレポート（`test` ジョブ完了後に実行）
 
 ## Components and Interfaces
 
@@ -70,17 +79,94 @@ on:
     branches: ['*']
 
 jobs:
-  ci:
+  test:
     runs-on: ubuntu-latest
     steps:
-      # Setup
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
           cache: true
-      
-      # Steps for each check...
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage.out
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: Build
+        run: go build -v ./...
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: Lint
+        uses: golangci/golangci-lint-action@v6
+
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: Check formatting
+        run: |
+          test -z "$(gofmt -l .)"
+          test -z "$(go run golang.org/x/tools/cmd/goimports@latest -l .)"
+
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: Check dependencies
+        run: |
+          go mod verify
+          go mod tidy && git diff --exit-code go.mod go.sum
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - name: Security scan
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  coverage:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage
+      - name: Coverage report
+        run: go tool cover -func=coverage.out
 ```
 
 ### 3. golangci-lint 設定（.golangci.yml）
