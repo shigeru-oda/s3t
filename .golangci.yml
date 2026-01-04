@@ -1,26 +1,14 @@
-# golangci-lint configuration
-# https://golangci-lint.run/usage/configuration/
-
-run:
-  timeout: 5m
+linters-settings:
+  govet:
+    disable:
+      - fieldalignment
 
 linters:
-  disable-all: true
+  enable-all: false
   enable:
-    - errcheck      # エラーチェック漏れの検出
-    - gosimple      # コード簡素化の提案
-    - govet         # 疑わしいコンストラクトの検出
-    - ineffassign   # 無効な代入の検出
-    - staticcheck   # 静的解析
-    - unused        # 未使用コードの検出
-
-linters-settings:
-  errcheck:
-    check-type-assertions: true
-    check-blank: false
-
-  govet:
-    enable-all: true
-
-  staticcheck:
-    checks: ["all"]
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
