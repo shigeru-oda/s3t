@@ -8,7 +8,8 @@ s3t/
 ├── go.mod                  # Go モジュール定義
 ├── go.sum                  # 依存関係ロックファイル
 ├── cmd/                    # CLI コマンド
-│   ├── root.go             # ルートコマンド、AWS クライアント初期化
+│   ├── root.go             # ルートコマンド、AWS クライアント初期化、グローバルフラグ
+│   ├── root_property_test.go # root コマンドのプロパティテスト
 │   ├── create.go           # create サブコマンド
 │   └── create_test.go      # create コマンドのテスト
 └── internal/               # 内部パッケージ
@@ -30,6 +31,11 @@ s3t/
 
 ### cmd/
 CLI コマンドの定義。Cobra を使用してサブコマンドを構成。
+
+- `root.go` - ルートコマンド、AWS クライアント初期化、`--profile`/`--region` グローバルフラグ
+- `root_property_test.go` - `buildConfigOptions` 関数のプロパティテスト
+- `create.go` - create サブコマンド
+- `create_test.go` - create コマンドのテスト
 
 ### internal/s3tables/
 S3 Tables 操作のビジネスロジック。外部パッケージからはインポート不可。
