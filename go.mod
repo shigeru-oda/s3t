@@ -7,6 +7,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.6
 	github.com/aws/aws-sdk-go-v2/service/s3tables v1.13.1
 	github.com/aws/smithy-go v1.24.0
+	github.com/leanovate/gopter v0.2.11
 	github.com/spf13/cobra v1.10.2
 )
 
@@ -23,6 +24,5 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.35.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.41.5 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/leanovate/gopter v0.2.11 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 )

@@ -24,12 +24,12 @@ type S3TablesAPI interface {
 
 // CreateResult represents the result of resource creation
 type CreateResult struct {
-	TableBucketCreated bool
 	TableBucketARN     string
-	NamespaceCreated   bool
-	TableCreated       bool
 	TableARN           string
 	Messages           []string
+	TableBucketCreated bool
+	NamespaceCreated   bool
+	TableCreated       bool
 }
 
 // S3TablesCreator manages S3 Tables resource creation

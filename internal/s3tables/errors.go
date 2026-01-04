@@ -30,11 +30,11 @@ const (
 
 // S3TablesError represents a user-friendly error from S3 Tables operations
 type S3TablesError struct {
+	OriginalErr error
 	Operation   string
-	Type        ErrorType
 	Message     string
 	Suggestion  string
-	OriginalErr error
+	Type        ErrorType
 }
 
 func (e *S3TablesError) Error() string {
