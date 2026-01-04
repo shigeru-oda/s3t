@@ -1,0 +1,15 @@
+# ビルド成果物
+s3t
+*.exe
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# テストカバレッジ
+coverage.out
