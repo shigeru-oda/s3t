@@ -123,9 +123,9 @@ type mockSmithyAPIError struct {
 	message string
 }
 
-func (e *mockSmithyAPIError) Error() string   { return e.message }
-func (e *mockSmithyAPIError) ErrorCode() string { return e.code }
-func (e *mockSmithyAPIError) ErrorMessage() string { return e.message }
+func (e *mockSmithyAPIError) Error() string                 { return e.message }
+func (e *mockSmithyAPIError) ErrorCode() string             { return e.code }
+func (e *mockSmithyAPIError) ErrorMessage() string          { return e.message }
 func (e *mockSmithyAPIError) ErrorFault() smithy.ErrorFault { return smithy.FaultUnknown }
 
 // CreateErrorMockS3TablesAPI returns errors on Create* operations
